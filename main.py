@@ -5,6 +5,7 @@ import telebot
 from telebot import types
 import sqlite3
 from json import loads
+import datetime
 
 admins = ['7917683744', '737942168', '6070976396', '1396645155', '871296258', '1984219536', '1105133767']
 technoadmins = ['469495683']  # Лжедмитрий
@@ -14,6 +15,7 @@ bonchadmins = []
 polytechadmins = []
 miningadmins = ['5904573214']  # Пингвини
 eveningadmins = ['625677497']  # Стронг
+blackinsideadmins = ['672758760']  # Rearm
 
 bot = telebot.TeleBot(settings['TOKEN'])
 current_club = ''
@@ -174,7 +176,7 @@ def callbacks(callback):
             photo_comm_tourn_get(callback.message, i[0])
             return
 
-    clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA']
+    clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA', 'BlackInside']
     for i in clubs:
         base_clubs = sqlite3.connect('clubs')
         cur_clubs = base_clubs.cursor()
@@ -251,10 +253,13 @@ def callbacks(callback):
         for j in data_:  # j[0] - идентификатор мероприятия
             base = sqlite3.connect('mero')
             cur = base.cursor()
-            cur.execute(f'SELECT id FROM {j[0]}')
+            try:
+                cur.execute(f'SELECT id FROM {i + j[0]}')
+            except:
+                continue
             members = cur.fetchall()
-            base.close()
             cur.close()
+            base.close()
             for k in members: # k[0] - айди участника подавшего заявку на меро
                 if callback.data == k[0] + i + j[0] + 'accept':
                     accept_request(callback.message, j[0], k[0], i)
@@ -297,12 +302,13 @@ def clubs_list(message):
     btn1 = types.KeyboardButton('TechnoMafia')
     btn2 = types.KeyboardButton('Чёрный ход')
     btn3 = types.KeyboardButton('LETI-MAFIA')
-    btn4 = types.KeyboardButton('BONCHMAFIA')
-    btn5 = types.KeyboardButton('Polytech mafia community')
+    #btn4 = types.KeyboardButton('BONCHMAFIA')
+    #btn5 = types.KeyboardButton('Polytech mafia community')
     btn6 = types.KeyboardButton('Mining Mafia')
     btn7 = types.KeyboardButton('Вечерняя партия')
+    btn8 = types.KeyboardButton('Black Inside')
     markup.row(btn1, btn2, btn3)
-    markup.row(btn4, btn5, btn6, btn7)
+    markup.row(btn6, btn7, btn8)
     bot.send_message(message.chat.id, "🕹Выберите клуб: ", reply_markup=markup)
     bot.register_next_step_handler(message, club_evening)
 
@@ -327,6 +333,8 @@ def club_evening(message):
         club = 'TechnoMafia'
     elif message.text == 'BONCHMAFIA':
         club = 'BONCHMAFIA'
+    elif message.text == 'Black Inside':
+        club = 'BlackInside'
     else:
         bot.send_message(message.chat.id, '❌Клуб не найден!')
         menu(message)
@@ -344,15 +352,12 @@ def club_evening(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('📌Вернуться в меню', callback_data='menu'))
     for i in data:
-        if int(i[6]) == 1: # если статус = 1, то есть его могут увидеть участники
+        if int(i[6]) != 0: # если статус = 1, то есть его могут увидеть участники
             markup.add(types.InlineKeyboardButton(i[2], callback_data=club + i[1] + 'info'))
     bot.send_message(message.chat.id, '🎫Выберите мероприятие: ', reply_markup=markup)
 
 
 def clubs_evening_info(message, identify, club, typ):  # typ = 1 - команда вызвана админом, = 0 - обычным пользователем
-    base = sqlite3.connect('clubs')
-    cur = base.cursor()
-
     base_mero = sqlite3.connect('mero')
     cur_mero = base_mero.cursor()
 
@@ -365,20 +370,25 @@ def clubs_evening_info(message, identify, club, typ):  # typ = 1 - команд�
     cur_mero.close()
     base_mero.close()
 
-    cnt = 0
-    for i in players:
-        cnt += 1
+    base = sqlite3.connect('clubs')
+    cur = base.cursor()
+    cur.execute(f'SELECT * FROM {club} WHERE identify = ?', (identify,))
+    data = cur.fetchall()
+    cur.close()
+    base.close()
 
-    try:
-        cur.execute(f'SELECT * FROM {club} WHERE identify = ?', (identify, ))
-    except:
-        bot.send_message(message.chat.id, '❌Мероприятие не найдено')
-        menu(message)
-        return
-    else:
-        data = cur.fetchall()
-        cur.close()
-        base.close()
+    for i in data:
+        status = i[6]
+
+    cnt = 0  # счётчик игроков в турнире
+    if players:
+        if status == 2:
+            for i in players:
+                if i[6] == 1:
+                    cnt += 1
+        else:
+            for i in players:
+                cnt += 1
 
     markup = types.InlineKeyboardMarkup()
     for i in data:
@@ -390,6 +400,7 @@ def clubs_evening_info(message, identify, club, typ):  # typ = 1 - команд�
             markup.add(types.InlineKeyboardButton('👀Удалить', callback_data=club + i[1] + 'delete'))
             markup.add(types.InlineKeyboardButton('💌Рассылка', callback_data=club + i[1] + 'send'))
             markup.add(types.InlineKeyboardButton('🖼Посмотреть профили', callback_data=club + i[1] + 'profiles'))
+            markup.add(types.InlineKeyboardButton('🙍‍♂️Посмотреть участников', callback_data=club + i[1] + 'members'))
         else:
             markup.add(types.InlineKeyboardButton('📌Вернуться в меню', callback_data='menu'))
             if i[6] == 1:
@@ -550,7 +561,7 @@ def success(message):
             bot.send_message(message.chat.id, "💸Взнос успешно оплачен", message_effect_id='5104841245755180586')
             return
 
-    clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA']
+    clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA', 'BlackInside']
     for i in clubs:
         cur_clubs.execute(f'SELECT identify FROM {i}')
         data = cur_clubs.fetchall()
@@ -572,7 +583,7 @@ def success(message):
 
 @bot.message_handler(commands=['admin'])
 def admin(message):
-    global admins, letiadmins, bonchadmins, miningadmins, technoadmins, darkturnadmins, eveningadmins, polytechadmins
+    global admins, letiadmins, bonchadmins, miningadmins, technoadmins, darkturnadmins, eveningadmins, polytechadmins, blackinsideadmins
     markup = types.InlineKeyboardMarkup(row_width=4)
     for i in admins:
         if str(message.chat.id) == i:
@@ -586,6 +597,7 @@ def admin(message):
             markup.add(types.InlineKeyboardButton('Polytech mafia community', callback_data='Polytech' + 'admin'))
             markup.add(types.InlineKeyboardButton('Mining Mafia', callback_data='Mining' + 'admin'))
             markup.add(types.InlineKeyboardButton('Вечерняя партия', callback_data='EveningParty' + 'admin'))
+            markup.add(types.InlineKeyboardButton('Black Inside', callback_data='BlackInside' + 'admin'))
             break
     else:
         for i in technoadmins:
@@ -623,8 +635,13 @@ def admin(message):
                                         markup.add(types.InlineKeyboardButton('Вечерняя партия', callback_data='EveningParty' + 'admin'))
                                         break
                                 else:
-                                    bot.send_message(message.chat.id, f"❌Ты не админ.")
-                                    return
+                                    for i in blackinsideadmins:
+                                        if str(message.chat.id) == i:
+                                            markup.add(types.InlineKeyboardButton('Black Inside', callback_data='BlackInside' + 'admin'))
+                                            break
+                                    else:
+                                        bot.send_message(message.chat.id, f"❌Ты не админ.")
+                                        return
 
     markup.add(types.InlineKeyboardButton('🔓Админ-гайд по боту', callback_data='ad_help'))
     bot.send_message(message.chat.id, '🔐Вы админ:', reply_markup=markup)
@@ -656,7 +673,7 @@ def userslist(message, typ):
 
     players_output = ''
     for i in players:
-        players_output += f'№{i[0]}. {i[1]} - {i[2]} - {i[3]}\n'
+        players_output += f'№{i[0]}. {i[1]} - @{bot.get_chat(i[1]).username} - {i[2]} - {i[3]}\n'
 
     markup = types.InlineKeyboardMarkup()
     if typ:
@@ -938,6 +955,7 @@ def mero_create2(message, data):
         desc = data['desc'] + '\n\n' + data["proh"]
     else:
         desc = data['desc']
+    data['date'] = datetime.datetime.strptime(data['date'].split('T')[0], "%Y-%m-%d").strftime("%d/%m/%Y") + ' ' + data['date'].split('T')[1]
     cur.execute(
         f'INSERT INTO {current_club} (identify, name, desc, date, limits, status, cost) VALUES ("{data["identify"]}", "{data["name"]}", "{desc}", "{data["date"]}", "{int(data["limit"])}", 0, "{int(data["cost"])}")')
     base.commit()
@@ -955,8 +973,7 @@ def mero_create2(message, data):
 
 def mero_create3(message, identify, club):
     if message.text == '❌Пропустить':
-        bot.send_message(message.chat.id, "🎉Успешно", reply_markup=types.ReplyKeyboardRemove(),
-                         message_effect_id='5107584321108051014')
+        bot.send_message(message.chat.id, "🎉Успешно", reply_markup=types.ReplyKeyboardRemove(), message_effect_id='5107584321108051014')
         clubs_evening_info(message, identify, club, 1)
         return
     if message.content_type != 'photo':
@@ -1057,6 +1074,7 @@ def mero_edit2(message, identify, club):
     if "desc" in data:
         cur.execute(f'UPDATE {club} SET desc = ? WHERE identify = ?', (data["desc"], identify))
     if "date" in data:
+        data['date'] = datetime.datetime.strptime(data['date'].split('T')[0], "%Y-%m-%d").strftime("%d/%m/%Y") + ' ' + data['date'].split('T')[1]
         cur.execute(f'UPDATE {club} SET date = ? WHERE identify = ?', (data["date"], identify))
     if "limit" in data:
         cur.execute(f'UPDATE {club} SET limits = ? WHERE identify = ?', (data["limit"], identify))
@@ -1329,6 +1347,13 @@ def spam2(message):
         bot.send_message(message.chat.id, "Отменено", reply_markup=types.ReplyKeyboardRemove(), message_effect_id='5107584321108051014')
         admin(message)
         return
+    bot.send_message(message.chat.id, f'Вы точно хотите отправить "{message.text}" ВСЕМ юзерам бота? Введите ДА, чтобы подтвердить действие')
+    bot.register_next_step_handler(message, spam3, message.text)
+
+
+def spam3(message, text):
+    if message.text != 'ДА':
+        bot.send_message(message.chat.id, '❌Действие не подтверждено!')
     else:
         base = sqlite3.connect('users')
         cur = base.cursor()
@@ -1340,7 +1365,7 @@ def spam2(message):
         base.close()
 
         for i in users:
-            bot.send_message(i[1], message.text)
+            bot.send_message(i[1], text)
 
 
 def send1(message, identify, club=None):
@@ -1540,7 +1565,7 @@ def send2(message, identify, club):
 def creating_tables(message):
     base = sqlite3.connect('tournaments_list')
     cur = base.cursor()
-    #clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA']
+    #clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA', 'BlackInside']
     #for club in clubs:
     cur.execute(f'ALTER TABLE tournaments ADD COLUMN distance TEXT NOT NULL DEFAULT {None}')
     base.commit()
@@ -1556,7 +1581,7 @@ def creating_tables(message):
 
     base = sqlite3.connect('clubs')
     cur = base.cursor()
-    clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA']
+    clubs = ['DarkTurn', 'LETI', 'Polytech', 'Mining', 'EveningParty', 'TechnoMafia', 'BONCHMAFIA', 'BlackInside']
     for club in clubs:
         cur.execute(f'CREATE TABLE IF NOT EXISTS {club} (num INTEGER PRIMARY KEY, identify TEXT NOT NULL, name TEXT NOT NULL, desc TEXT NOT NULL, date TEXT NOT NULL, limits INTEGER, status INTEGER, cost INTEGER)')
         base.commit()
@@ -1595,6 +1620,12 @@ def meow(message):
     if message.text.lower() == 'мяу':
         bot.reply_to(message, "мяу")
         print(f"Мяу от {message.from_user.first_name} {message.from_user.last_name}")
+    if "send" in message.text:
+         bot.send_message(-4691783391, message.text[5:])
 
 
-bot.polling(none_stop=True)
+while True:
+    try:
+        bot.polling(none_stop=True)
+    except:
+        pass
