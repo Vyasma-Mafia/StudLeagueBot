@@ -112,7 +112,8 @@ async def participants(callback: CallbackQuery):
     if not answer:
         await callback.answer("🕳Участников нет!")
         return
-    await callback.message.edit_text(answer, reply_markup=markup.as_markup())
+    await callback.answer()
+    await callback.message.answer(answer, reply_markup=markup.as_markup())
 
 
 @ad_menu.callback_query(F.data[:8] == "requests")

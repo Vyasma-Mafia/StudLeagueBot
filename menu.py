@@ -12,9 +12,7 @@ menu = Router()
 
 async def main_menu(message: Message):
     async with asession() as session:
-        query = select(AdminsTable.id)
-        result = await session.execute(query)
-        admins = result.all()[0]
+        if_admin = await session.get(AdminsTable, message.chat.id)
     markup = InlineKeyboardBuilder([
         [
             InlineKeyboardButton(text="🏆Турниры", callback_data="tournaments"),
@@ -27,7 +25,7 @@ async def main_menu(message: Message):
             InlineKeyboardButton(text="🛠Техподдержка", url="https://t.me/acc_maf")
         ]
     ])
-    if message.chat.id in admins:
+    if if_admin:
         markup.row(InlineKeyboardButton(text="⚙Админ панель", callback_data="admin_menu"))
     await message.answer("📌Выберите опцию:", reply_markup=markup.as_markup())
 
@@ -46,7 +44,7 @@ async def menu_from_callback(callback: CallbackQuery):
 @menu.message()
 async def menu_from_message(message: Message):
     '''async with asession() as session:
-        user = AdminsTable(id=message.from_user.id,
+        user = AdminsTable(id=message.chat.id,
                       clubs="['*']")
         session.add(user)
         await session.commit()'''

@@ -170,11 +170,10 @@ async def create_invoice(callback: CallbackQuery):
         user_num_in_reg = result.scalar_one_or_none()
     await callback.message.answer_invoice(title="Оплатить участие",
                                           description="Оплата участия в " + tourn_info.name,
-                                          # provider_token=pay,
+                                          provider_token=pay,
                                           payload=str(user_num_in_reg),
-                                          currency="XTR",
-                                          prices=[LabeledPrice(label="Оплата",  # amount=tourn_info.cost * 100)]
-                                                               amount=1)]
+                                          currency="RUB",
+                                          prices=[LabeledPrice(label="Оплата",  amount=tourn_info.cost * 100)]
                                           )
 
 

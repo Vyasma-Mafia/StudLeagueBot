@@ -1,14 +1,21 @@
-from sqlalchemy import MetaData, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import MetaData, ForeignKey, Text, BigInteger
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
+from sqlalchemy.ext.asyncio import AsyncAttrs
 
-from config import engine, Base
+from config import engine
 
 metadata = MetaData()
 
 
+class Base(AsyncAttrs, DeclarativeBase):
+    type_annotation_map = {
+        str: Text()
+    }
+
+
 class UsersTable(Base):
     __tablename__ = "users"
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[str]
     nick: Mapped[str]
     club: Mapped[str]
@@ -35,7 +42,7 @@ class TournamentsTable(Base):
 class RegistrationsTable(Base):
     __tablename__ = "registrations"
     num: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     event_id: Mapped[int] = mapped_column(ForeignKey("tournaments.num", ondelete="CASCADE"))
     paid: Mapped[bool | None]  # оплачено (1) или нет (0)
     request: Mapped[bool | None]  # является заявкой (1) или уже записью (0)
@@ -43,16 +50,16 @@ class RegistrationsTable(Base):
 
 class AdminsTable(Base):
     __tablename__ = "admins"
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     clubs: Mapped[str]
 
 
 class PaymentsTable(Base):
     __tablename__ = "payments"
     num: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     reg_id: Mapped[int] = mapped_column(ForeignKey("registrations.num"))
-    cost: Mapped[int] = mapped_column(ForeignKey("tournaments.cost"))
+    cost: Mapped[int]
     was: Mapped[bool | None]
 
 

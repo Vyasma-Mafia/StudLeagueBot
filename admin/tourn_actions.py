@@ -210,9 +210,9 @@ async def edit_tournament2(message: Message, state: FSMContext):
     if message.text == "Картинку":
         await message.answer("📷Отправьте новую картинку:")
     if message.text != "Статус":
-        await message.answer(f"Введите {morph.parse("новый")[0].
-                             inflect({morph.parse(message.text.lower())[0].tag.gender}).word
-                             if morph.parse(message.text.lower())[0].tag.gender else "новый"} {message.text.lower()}")
+        await message.answer(
+    f"Введите {morph.parse('новый')[0].inflect({morph.parse(message.text.lower())[0].tag.gender}).word if morph.parse(message.text.lower())[0].tag.gender else 'новый'} {message.text.lower()}"
+)
         return
     markup = ReplyKeyboardMarkup(keyboard=[[
         KeyboardButton(text="Скрытый"),
@@ -336,7 +336,7 @@ async def newsletter3(message: Message, state: FSMContext):
         result = await session.execute(query)
         users = result.all()
         tourn_name = await session.get(TournamentsTable, data["num"])
-    text = f"<b>{tourn_name.name}</b>\n\n{data["text"]}"
+    text = f"<b>{tourn_name.name}</b>\n\n{data['text']}"
     if not users:
         await message.answer("Участников нет!")
         return
@@ -371,7 +371,8 @@ async def admin_list(callback: CallbackQuery):
         all_admins = result.all()
     admins = []
     for i in all_admins:
-        clubs = eval(i.clubs) if eval(i.clubs) is not None else []
+        print(i, all_admins, i[3])
+        clubs = eval(i[3]) if i[3] else []
         if callback.data[10:] in clubs:
             admins.append(i)
     markup = InlineKeyboardBuilder([[
@@ -410,15 +411,14 @@ async def add_admin2(message: Message, state: FSMContext):
         await message.answer("❌Вы ввели неверный id!")
         return
     async with asession() as session:
-        query = select(AdminsTable).where(AdminsTable.id == data["id"])
-        result = await session.execute(query)
-        admin_user = result.all()[0][0]
-        clubs = eval(admin_user.clubs) if eval(admin_user.clubs) is not None else []
-        if data["club"] in clubs:
-            await message.answer("🙍‍♂️Пользователь уже является администратором!")
-            return
+        admin_user = await session.get(AdminsTable, data["id"])
+    clubs = eval(admin_user.clubs) if hasattr(admin_user, 'clubs') else []
+    if data["club"] in clubs:
+        await message.answer("🙍‍♂️Пользователь уже является администратором!")
+        return
+    async with asession() as session:
         if not admin_user:
-            new_admin = AdminsTable(id=data["id"], clubs='['+data["club"]+']')
+            new_admin = AdminsTable(id=data["id"], clubs="['"+data["club"]+"']")
             session.add(new_admin)
         else:
             clubs.append(data["club"])
@@ -447,7 +447,7 @@ async def remove_admin2(message: Message, state: FSMContext):
     await state.clear()
     async with asession() as session:
         admin = await session.get(AdminsTable, data["id"])
-        clubs = eval(admin.clubs) if eval(admin.clubs) is not None else []
+        clubs = eval(admin.clubs) if hasattr(admin, 'clubs') else []
         try:
             clubs.remove(data["club"])
         except:
